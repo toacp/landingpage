@@ -1,25 +1,53 @@
-# Landing page with Google Form integration
+# Landing page with Google Sheets integration
 
-This project contains a simple landing page with a video and a signup form. The JS is prepared to submit directly to a Google Form endpoint, but you must create the Google Form and copy the correct `FORM_ID` and `entry.*` field IDs into `script.js`.
+This project contains a simple landing page with a video and a signup form. The form now submits directly to Google Sheets through a Google Apps Script web app, which is easier than managing Google Form entry IDs.
 
-Steps to connect the form to Google Forms and Sheets:
+Steps to connect the form to Google Sheets:
 
-1. Create a Google Form with three fields: Email (Short answer), Interest (Multiple choice or radio with values "yes"/"no"), Additional details (Paragraph).
-2. Click Responses → the three-dot menu → "Select response destination" → create a new Google Sheet.
-3. Open the form preview (eyeball icon), open your browser DevTools (Network tab), fill the form, and submit.
-4. In the Network tab find the request to a URL that contains `/formResponse` — select it and inspect the request payload. Field names look like `entry.123456789`.
-5. In `script.js` replace `FORM_ID` in `GOOGLE_FORM_ACTION` and replace `ENTRY_EMAIL`, `ENTRY_INTEREST`, and `ENTRY_DETAILS` with the `entry.*` names you discovered.
+1. Create a Google Sheet for storing responses.
+2. In the Sheet, go to Extensions → Apps Script.
+3. Replace the script with the code in `google-sheets-app-script.gs`.
+4. Deploy it as a Web App: Deploy → New deployment → Type: Web app.
+5. Set "Execute as" to your account and "Who has access" to Anyone.
+6. Copy the Web App URL and replace `YOUR_DEPLOYMENT_ID` in `script.js`.
+
+What the web app does:
+- Accepts `email`, `interest`, `details`, `pageUrl`, and `submittedAt`.
+- Appends a new row to the connected Google Sheet.
+- Lets the landing page update the sheet live with every submission.
 
 Example values in `script.js` after replacing:
 
-const GOOGLE_FORM_ACTION = 'https://docs.google.com/forms/d/e/1FAIpQLSf.../formResponse';
-const ENTRY_EMAIL = 'entry.1111111111';
-const ENTRY_INTEREST = 'entry.2222222222';
-const ENTRY_DETAILS = 'entry.3333333333';
+const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycb.../exec';
 
 Notes:
-- The script uses `fetch` with `mode: 'no-cors'` because Google Forms rejects cross-origin requests; with `no-cors` the browser will not expose the real response but the submission will still reach Google Forms.
-- If you prefer server-side submission (more reliable and observable), create a small backend that posts to the Google Form endpoint or writes directly to Google Sheets via the Sheets API.
+- The script uses `fetch` with `mode: 'no-cors'` so the browser can send the request to the Apps Script web app without CORS errors.
+- If you still want to route through Google Forms, I can switch this back and wire the entry IDs instead.
+
+Apps Script code
+----------------
+
+Create a file named `google-sheets-app-script.gs` in the repo with this code, then paste it into the Google Apps Script editor:
+
+```javascript
+function doPost(e) {
+	const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+	const data = e.parameter;
+
+	sheet.appendRow([
+		new Date(),
+		data.email || '',
+		data.interest || '',
+		data.details || '',
+		data.pageUrl || '',
+		data.submittedAt || ''
+	]);
+
+	return ContentService
+		.createTextOutput(JSON.stringify({ ok: true }))
+		.setMimeType(ContentService.MimeType.JSON);
+}
+```
 
 Deployment to GitHub Pages
 -------------------------
@@ -41,10 +69,9 @@ Notes about video size
 - Large videos increase repo size; consider hosting the video externally (Cloudflare, S3, Cloudinary) and update the `src` in `index.html` if you run into repo size or bandwidth issues.
 
 
-How to capture the entry IDs (quick):
+Video notes
+-----------
 
-- Open devtools → Network. Filter by "formResponse" or look for a POST request when submitting the form preview.
-- Inspect the request's payload: you'll see key/value pairs like `entry.123456789=you@example.com`.
-- Copy those `entry.*` keys into `script.js`.
-
-Place your video in `assets/hero.mp4` (replace the placeholder). The assets folder contains a small README.
+- The landing page now points at the video already in the repo: `WhatsApp Video 2026-05-17 at 1.25.33 PM.mp4`.
+- If you want a cleaner filename later, rename that file to `assets/hero.mp4` and update the `<source>` path in `index.html`.
+- The page still keeps `assets/hero.mp4` as a fallback source.

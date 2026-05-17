@@ -1,8 +1,6 @@
-// Configuration: replace FORM_ID and ENTRY_* placeholders with real values
-const GOOGLE_FORM_ACTION = 'https://docs.google.com/forms/d/e/FORM_ID/formResponse';
-const ENTRY_EMAIL = 'entry.ENTER_EMAIL_ID';
-const ENTRY_INTEREST = 'entry.ENTER_INTEREST_ID';
-const ENTRY_DETAILS = 'entry.ENTER_DETAILS_ID';
+// Replace this with your deployed Google Apps Script Web App URL.
+// The script in google-sheets-app-script.gs appends submissions directly to Google Sheets.
+const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyoGRWu6mhWc1iPg8oDccoMc-q4MidY8bbpYjEOkr_taNmgDcFIVJcZuiYH4T5TxAGoag/exec';
 
 const form = document.getElementById('landingForm');
 const status = document.getElementById('status');
@@ -12,29 +10,26 @@ form.addEventListener('submit', async (e) => {
   status.textContent = 'Submitting…';
 
   const data = new FormData();
-  data.append(ENTRY_EMAIL, form.email.value);
-  const interest = form.interest.value || '';
-  data.append(ENTRY_INTEREST, interest);
-  data.append(ENTRY_DETAILS, form.details.value);
+  data.append('email', form.email.value);
+  data.append('interest', form.interest.value || '');
+  data.append('details', form.details.value);
+  data.append('pageUrl', window.location.href);
+  data.append('submittedAt', new Date().toISOString());
 
   try {
-    // POST to Google Forms endpoint. This uses the classic "formResponse" endpoint.
-    const res = await fetch(GOOGLE_FORM_ACTION, {
+    // POST to Google Apps Script endpoint. no-cors is used so the browser will send
+    // the request even when the web app is hosted on Google domains.
+    await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
       method: 'POST',
       mode: 'no-cors',
       body: data,
     });
-    // When using no-cors, fetch won't give a usable response — assume success if no exception
-    status.textContent = 'Thanks! Your response was submitted.';
+    // With no-cors, the browser won't expose the response. No exception means the
+    // request was sent, and the Apps Script web app will append the row to Sheets.
+    status.textContent = 'Thanks! Your response was submitted to Google Sheets.';
     form.reset();
   } catch (err) {
     console.error(err);
     status.textContent = 'Submission failed. See console for details.';
   }
 });
-
-// Helper: open the live Google Form (constructed from FORM_ID)
-function openGoogleFormPreview() {
-  const preview = GOOGLE_FORM_ACTION.replace('/formResponse','');
-  window.open(preview, '_blank');
-}
